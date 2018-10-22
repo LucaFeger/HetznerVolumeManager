@@ -1,6 +1,11 @@
 #!/bin/bash
 DIALOG=${DIALOG=dialog}
 
+if [ -z $1 ]; then
+    echo "Please provide your API-KEY"
+    exit 1
+fi
+
 command -v dialog >/dev/null 2>&1 || { echo "installing dialog..."; sudo apt install -y dialog; }
 command -v curl >/dev/null 2>&1 || { echo "installing curl..."; sudo apt install -y curl; }
 command -v jq >/dev/null 2>&1 ||{ echo "installing jq..."; sudo apt install -y jq; }
@@ -40,7 +45,7 @@ case $ANSWER in
 			fi
 		done
 		
-		if [-z $VALUES]; then
+		if [ -z $VALUES ]; then
 			echo "There is no volume that isn't mounted. Aborting..."
 			exit 1	
 		else

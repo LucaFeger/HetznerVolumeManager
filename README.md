@@ -24,7 +24,7 @@ Roadmap
 
 ### Code
 - [ ] unified message design
-- [ ] input validation
+- [x] input validation
 - [ ] more meaningful error messages
 - [ ] **removal of wrong jq error messages**
 - [ ] better file structure (split up main file)

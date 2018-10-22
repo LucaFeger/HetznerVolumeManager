@@ -15,10 +15,12 @@ clear
 case $ANSWER in
 	1)
 		# BEGINNING OF SECTION "CREATE AND MOUNT VOLUME"
+		SIZE=
 
-		SIZE=$(dialog --title "Volume Setup" \
-			--inputbox "Enter the volume size in GB (min 10):" 8 40 \
-  			3>&1 1>&2 2>&3 3>&-)
+		until [[ $SIZE =~ ^[0-9]+$ && $SIZE -gt 9 ]]; do
+			SIZE=$(dialog --title "Volume Setup" --inputbox "Enter the volume size in GB (min 10):" 8 40 3>&1 1>&2 2>&3 3>&-)
+		done
+
 		dialog --clear
 		NAME=$(dialog --title "Volume Setup" --inputbox "Enter the volume name:" 8 40 3>&1 1>&2 2>&3 3>&-)
 		clear

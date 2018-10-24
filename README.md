@@ -27,5 +27,4 @@ Roadmap
 - [x] input validation
 - [ ] more meaningful error messages
 - [x] removal of wrong jq error messages
-- [ ] better file structure (split up main file)
-- [ ] avoiding hardcoded waiting times
+- [x] avoiding hardcoded waiting times

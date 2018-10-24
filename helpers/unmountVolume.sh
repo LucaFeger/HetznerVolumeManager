@@ -1,6 +1,6 @@
 #!/bin/bash
 command -v curl >/dev/null || { echo "Installing curl..."; sudo apt install -y curl; }
-command -v jq >/dev/null || { echo "Installting jq..."; sudo aput install -y jq; }
+command -v jq >/dev/null || { echo "Installting jq..."; sudo apt install -y jq; }
 
 # Get Hetzner Server ID
 IP="$(dig +short myip.opendns.com @resolver1.opendns.com)"

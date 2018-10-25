@@ -12,7 +12,7 @@ command -v dialog >/dev/null 2>&1 || { echo "installing dialog..."; sudo apt ins
 command -v curl >/dev/null 2>&1 || { echo "installing curl..."; sudo apt install -y curl; }
 command -v jq >/dev/null 2>&1 ||{ echo "installing jq..."; sudo apt install -y jq; }
 
-IP=
+IP="$(curl --silent ipecho.net/plain)"
 ALL_VOLUMES_HTTP=
 ALL_SERVERS_HTTP=
 SERVER_ID=
@@ -20,33 +20,37 @@ ALL_VOLUME_NAMES=
 
 #Startup Routine:
 function startup {
-    IP="$(dig +short myip.opendns.com @resolver1.opendns.com)"
     ALL_VOLUMES_HTTP=$(curl --silent --write-out "HTTPSTATUS:%{http_code}" -H "Authorization: Bearer $API_KEY" https://api.hetzner.cloud/v1/volumes)
     ALL_SERVERS_HTTP=$(curl --silent --write-out "HTTPSTATUS:%{http_code}" -H "Authorization: Bearer $API_KEY" https://api.hetzner.cloud/v1/servers)
 
     SERVER_ID=$(jq '.servers[]|select(.public_net.ipv4.ip=="'"$IP"$'")|.id' <<< "$ALL_SERVERS_HTTP" 2>/dev/null)
 
     ALL_VOLUME_NAMES=$(echo $ALL_VOLUMES_HTTP | jq -r '.volumes[].name' 2>/dev/null)
+
+    CLOSE=false
 }
 
-startup
-
 function createVolume {
+
+    dialog --aspect 100 --msgbox '{"size": '$1$', "name": "'"$2"$'", "server": '$SERVER_ID'}' 0 0
+
     HTTP_RESPONSE=$(curl --silent --write-out "HTTPSTATUS:%{http_code}" -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $API_KEY" -d '{"size": '$1$', "name": "'"$2"$'", "server": '$SERVER_ID'}' https://api.hetzner.cloud/v1/volumes)
 
-    echo "Creating volume..."
+    dialog --aspect 100 --infobox "Creating volume..." 0 0
+    sleep 0.5
     HTTP_BODY=$(echo "$HTTP_RESPONSE" | sed -e 's/HTTPSTATUS\:.*//g')
     ERROR_CHECK=$(jq '.error.message' <<< "$HTTP_BODY" 2>/dev/null)
 
     if [ "$ERROR_CHECK" = "null" ]; then
-        echo "Configuring volume..."
+        dialog --aspect 100 --infobox "Configuring volume..." 0 0
+        sleep 0.5
 
         LINUX_TEMP=$(jq '.volume.linux_device' <<< "$HTTP_BODY" 2>/dev/null)
         VOLUME_ID=$(jq '.volume.id' <<< "$HTTP_BODY" 2>/dev/null)
         LINUX_DEVICE="${LINUX_TEMP//\"}"
         MOUNT_PATH="/mnt/$2"
 
-        echo "Waiting for the container to create"
+        dialog --aspect 100 --infobox "Waiting for the container to create (this may take a few seconds)" 0 0
 
         SUCCESS=false
         until [[ $SUCCESS = true ]]; do
@@ -57,24 +61,27 @@ function createVolume {
             fi
         done
 
-        echo "Remove existing mounts"
+        dialog --aspect 100 --infobox "Removing existing mounts" 0 0
+        sleep 0.5
         sudo umount -R "$MOUNT_PATH" &> /dev/null
-        echo "removing old directory"
+        dialog --aspect 100 --infobox "Removing old directory" 0 0
+        sleep 0.5
         sudo rm -rf "$MOUNT_PATH" &> /dev/null
 
-        echo "mounting to directory"
+        dialog --aspect 100 --infobox "mounting to directory" 0 0
+        sleep 0.5
         sudo mkfs.ext4 -F "$LINUX_DEVICE" &>/dev/null
         sudo mkdir -p "$MOUNT_PATH" &>/dev/null
         mount -o discard,defaults "$LINUX_DEVICE" "$MOUNT_PATH" &> /dev/null
-        echo "The volume is now mounted to $MOUNT_PATH !"
+        dialog --aspect 100 --msgbox "The volume is now mounted to $MOUNT_PATH !" 0 0
     else
-        echo "An error occured: $ERROR_CHECK"
+        dialog --aspect 100 --aspect 100 --msgbox "An error occured: $ERROR_CHECK" 0 0
     fi
 }
 
 function deleteVolume {
     curl --silent -X DELETE -H "Authorization: Bearer $API_KEY" https://api.hetzner.cloud/v1/volumes/$1
-    echo "The volume was deleted!"
+    dialog --aspect 100 --msgbox "The volume is now deleted" 0 0
 }
 
 
@@ -84,16 +91,18 @@ function unmountVolume {
     ERROR_CHECK=$(jq '.error.message' <<< "$HTTP_BODY" 2>/dev/null)
 
     if [ "$ERROR_CHECK" = "null" ]; then
-        echo "Unmounting volume"
+        dialog --aspect 100 --infobox "Unmounting volume" 0 0
+        sleep 0.5
 
         MOUNT_PATH="/mnt/$2"
 
-        echo "Remove existing mounts"
-            sudo umount -R "$MOUNT_PATH" &> /dev/null
-            echo "removing old directory"
-            sudo rm -rf "$MOUNT_PATH" &> /dev/null
-
-            echo "The mount at $MOUNT_PATH was deleted!"
+        dialog --aspect 100 --infobox "Removing existing mounts" 0 0
+        sleep 0.5
+        sudo umount -R "$MOUNT_PATH" &> /dev/null
+        dialog --aspect 100 --infobox "Removing old directory" 0 0
+        sleep 0.5
+        sudo rm -rf "$MOUNT_PATH" &> /dev/null
+        dialog --aspect 100 --msgbox "The mount at $MOUNT_PATH was deleted!" 0 0
 
         if [ $3 == true ]; then
             SUCCESS=false
@@ -108,7 +117,7 @@ function unmountVolume {
             deleteVolume $1
         fi
     else
-        echo "An error occured: $ERROR_CHECK"
+        dialog --aspect 100 --msgbox "An error occured: $ERROR_CHECK" 0 0
     fi
 }
 
@@ -118,7 +127,8 @@ function mountVolume {
     ERROR_CHECK=$(jq '.error.message' <<< "$HTTP_BODY" 2>/dev/null)
 
     if [ "$ERROR_CHECK" = "null" ]; then
-        echo "Mounting volume..."
+        dialog --aspect 100 --infobox "Mounting volume..." 0 0
+        sleep 0.5
         LINUX_TEMP="$2"
         MOUNT_TEMP="$3"
 
@@ -134,89 +144,113 @@ function mountVolume {
             fi
         done
 
-        echo "Remove existing mounts"
+        dialog --aspect 100 --infobox "Remove existing mounts" 0 0
+        sleep 0.5
         sudo umount -R "$MOUNT_PATH" # &> /dev/null
-        echo "removing old directory"
+        dialog --aspect 100 --infobox "Removing old directory" 0 0
+        sleep 0.5
         sudo rm -rf "$MOUNT_PATH" # &> /dev/null
 
-        echo "mounting to directory"
+        dialog --aspect 100 --infobox "Mounting to directory" 0 0
+        sleep 0.5
         sudo mkdir "$MOUNT_PATH" # &>/dev/null
         mount -o discard,defaults "$LINUX_DEVICE" "$MOUNT_PATH" # &> /dev/null
-        echo "The volume is now mounted to $MOUNT_PATH !"
+        dialog --aspect 100 --msgbox "The volume is now mounted to $MOUNT_PATH !" 0 0
     else
-        echo "An error occured: $ERROR_CHECK"
+        dialog --aspect 100 --msgbox "An error occured: $ERROR_CHECK" 0 0
     fi
 }
 
-ANSWER=$(dialog --title "Choose action" --default-item "1" \
-       	--menu "Select:" 0 0 0 \
-	1 "Create and mount volume" \
-	2 "Mount volume" \
-	3 "Unmount volume" \
-	4 "Delete and unmount volume" 3>&1 1>&2 2>&3)
-# clear
-case $ANSWER in
-	1)
-		# BEGINNING OF SECTION "CREATE AND MOUNT VOLUME"
-		SIZE=
+function openMenu {
+    ANSWER=$(dialog --title "Choose action" --default-item "1" \
+            --menu "Select:" 0 0 0 \
+        1 "Create and mount volume" \
+        2 "Mount volume" \
+        3 "Unmount volume" \
+        4 "Delete and unmount volume" 3>&1 1>&2 2>&3)
+    # clear
+    case $ANSWER in
+        1)
+            # BEGINNING OF SECTION "CREATE AND MOUNT VOLUME"
+            SIZE=0
 
-		until [[ $SIZE =~ ^[0-9]+$ && $SIZE -gt 9 ]]; do
-			SIZE=$(dialog --title "Volume Setup" --inputbox "Enter the volume size in GB (min 10):" 8 40 3>&1 1>&2 2>&3 3>&-)
-		done
+            until [[ $SIZE =~ ^[0-9]+$ && $SIZE -gt 9 ]] || [ -z $SIZE ]; do
+                SIZE=$(dialog --title "Volume Setup" --inputbox "Enter the volume size in GB (min 10):" 8 40 3>&1 1>&2 2>&3 3>&-)
+            done
 
-		dialog --clear
-		NAME=$(dialog --title "Volume Setup" --inputbox "Enter the volume name:" 8 40 3>&1 1>&2 2>&3 3>&-)
-		clear
+            dialog --clear
 
-		createVolume "$SIZE" "$NAME";;
-	2)
-		# BEGINNING OF SECTION "MOUNT VOLUME"
-			
-		VALUES=""
-		for i in $ALL_VOLUME_NAMES; do
-			if [ "$(jq -r '.volumes[]|select(.name=="'$i'")|.server' <<< "$ALL_VOLUMES_HTTP")" == "null" ]; then
-				VALUES="$VALUES $(jq -r '.volumes[]|select(.name=="'$i'")|.id' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null) $i"
-			fi
-		done
-		
-		if [ -z $VALUES ]; then
-			echo "There is no volume that isn't mounted. Aborting..."
-			exit 1	
-		else
-			SELECTED_VOLUME_ID=$(dialog --title "Volume mount" --menu "Select: " 0 0 0 $VALUES 3>&1 1>&2 2>&3)
-			clear
-		fi
-
-		mountVolume "$SELECTED_VOLUME_ID" "$(jq -r '.volumes[]|select(.id=='$SELECTED_VOLUME_ID')|.linux_device' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null)"  "$(jq -r '.volumes[]|select(.id=='$SELECTED_VOLUME_ID')|.name' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null)"
-		;;
-	[3-4])
-		# BEGINNING OF SECTION UNMOUNT VOLUME
+            if ! [[ -z $SIZE ]]; then
+                NAME=$(dialog --title "Volume Setup" --inputbox "Enter the volume name:" 8 40 3>&1 1>&2 2>&3 3>&-)
+                if ! [[ -z $NAME ]]; then
+                    createVolume "$SIZE" "$NAME"
+                fi
+            fi
+            ;;
+        2)
+            # BEGINNING OF SECTION "MOUNT VOLUME"
 
             VALUES=""
             for i in $ALL_VOLUME_NAMES; do
-			    server_id=$(jq -r '.volumes[]|select(.name=="'$i'")|.server' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null)
-			    server_ip=$(jq -r '.servers[]|select(.id=='$server_id')|.public_net.ipv4.ip' <<< "$ALL_SERVERS_HTTP" 2>/dev/null)
-
-                echo "$IP"
-			    echo "$server_ip"
-
-                if [ "$server_id" != "null" ] && [ "$server_ip" == "$IP" ]; then
+                if [ "$(jq -r '.volumes[]|select(.name=="'$i'")|.server' <<< "$ALL_VOLUMES_HTTP")" == "null" ]; then
                     VALUES="$VALUES $(jq -r '.volumes[]|select(.name=="'$i'")|.id' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null) $i"
                 fi
             done
-		
-		if [ -z $VALUES ]; then
-			echo "There are no mounted volumes. Aborting..."
-			exit 1
-		else
-			SELECTED_VOLUME_ID=$(dialog --title "Unmount volume" --menu "Select: " 0 0 0 $VALUES 3>&1 1>&2 2>&3)
-			clear
-		fi
-		
-		if [ $ANSWER == 4 ]; then
-			unmountVolume "$SELECTED_VOLUME_ID"  "$(jq -r '.volumes[]|select(.id=='$SELECTED_VOLUME_ID')|.name' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null)" true
-		else
-			unmountVolume "$SELECTED_VOLUME_ID"  "$(jq -r '.volumes[]|select(.id=='$SELECTED_VOLUME_ID')|.name' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null)" false
-		fi
-		;;	
-esac	
+
+            if [ -z $VALUES ]; then
+                dialog --aspect 100 --infobox "There is no volume that isn't mounted." 0 0
+                sleep 1
+            else
+                SELECTED_VOLUME_ID=$(dialog --title "Volume mount" --menu "Select: " 0 0 0 $VALUES 3>&1 1>&2 2>&3)
+                clear
+            fi
+
+            mountVolume "$SELECTED_VOLUME_ID" "$(jq -r '.volumes[]|select(.id=='$SELECTED_VOLUME_ID')|.linux_device' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null)"  "$(jq -r '.volumes[]|select(.id=='$SELECTED_VOLUME_ID')|.name' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null)"
+            ;;
+        [3-4])
+            # BEGINNING OF SECTION UNMOUNT VOLUME
+
+                VALUES=""
+                for i in $ALL_VOLUME_NAMES; do
+                    server_id=$(jq -r '.volumes[]|select(.name=="'$i'")|.server' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null)
+                    server_ip=$(jq -r '.servers[]|select(.id=='$server_id')|.public_net.ipv4.ip' <<< "$ALL_SERVERS_HTTP" 2>/dev/null)
+
+                    echo "$IP"
+                    echo "$server_ip"
+
+                    if [ "$server_id" != "null" ] && [ "$server_ip" == "$IP" ]; then
+                        VALUES="$VALUES $(jq -r '.volumes[]|select(.name=="'$i'")|.id' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null) $i"
+                    fi
+                done
+
+            EXECUTE=true
+            if [ -z $VALUES ]; then
+                dialog --aspect 100 --infobox "There are no mounted volumes." 0 0
+                EXECUTE=false
+                sleep 1
+            else
+                SELECTED_VOLUME_ID=$(dialog --title "Unmount volume" --menu "Select: " 0 0 0 $VALUES 3>&1 1>&2 2>&3)
+                clear
+            fi
+
+            if [ $EXECUTE = true ]; then
+                if [ $ANSWER == 4 ]; then
+                    unmountVolume "$SELECTED_VOLUME_ID"  "$(jq -r '.volumes[]|select(.id=='$SELECTED_VOLUME_ID')|.name' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null)" true
+                else
+                    unmountVolume "$SELECTED_VOLUME_ID"  "$(jq -r '.volumes[]|select(.id=='$SELECTED_VOLUME_ID')|.name' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null)" false
+                fi
+            fi
+            ;;
+    esac
+
+    if [[ -z $ANSWER ]]; then
+        CLOSE=true
+    fi
+}
+
+### Message Call
+until [[ $CLOSE = true ]]; do
+    startup
+    openMenu
+done
+clear

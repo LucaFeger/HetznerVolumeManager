@@ -23,8 +23,7 @@ Roadmap
 - [ ] **resizing volumes** 
 
 ### Code
-- [ ] unified message design
+- [x] unified message design
 - [x] input validation
-- [ ] more meaningful error messages
 - [x] removal of wrong jq error messages
 - [x] avoiding hardcoded waiting times

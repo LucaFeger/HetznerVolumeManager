@@ -19,7 +19,7 @@ Roadmap
 - [x] removing and unmounting volumes
 - [ ] **removing volumes**
 - [x] resizing volumes
-- [ ] **changing protection**
+- [x] changing protection
 - [x] resizing volumes
 
 ### Code

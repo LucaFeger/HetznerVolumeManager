@@ -20,7 +20,7 @@ Roadmap
 - [ ] **removing volumes**
 - [x] resizing volumes
 - [ ] **changing protection**
-- [ ] **resizing volumes** 
+- [x] resizing volumes
 
 ### Code
 - [x] unified message design

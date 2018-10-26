@@ -161,13 +161,44 @@ function mountVolume {
     fi
 }
 
+function resizeVolume {
+    RESULT=$(curl --silent --write-out "HTTPSTATUS:%{http_code}" -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $API_KEY" -d '{"size": '$2$'}' https://api.hetzner.cloud/v1/volumes/$1/actions/resize)
+    HTTP_BODY=$(echo "$RESULT" | sed -e 's/HTTPSTATUS\:.*//g')
+    ERROR_CHECK=$(jq '.error.message' <<< "$HTTP_BODY" 2>/dev/null)
+
+    if [ "$ERROR_CHECK" = "null" ]; then
+        dialog --aspect 100 --infobox "Resizing volume..." 0 0
+
+        SUCCESS=false
+        until [[ $SUCCESS = true ]]; do
+            temp_result="$(curl --silent -H "Authorization: Bearer $API_KEY" https://api.hetzner.cloud/v1/volumes/$1/actions)"
+            status=$(jq -r "[.actions[]|select(.command==\"resize_volume\")|.status][-1]" <<< $temp_result 2>/dev/null)
+            if [ "$status" = "success" ]; then
+                SUCCESS=true
+            fi
+        done
+
+        MOUNT_POINT=$3
+        FILE_SYSTEM=$(lsblk | grep "$MOUNT_POINT" | awk '{print $1;}')
+        dialog --aspect 100 --infobox "Resizing local partition..." 0 0
+        sleep 0.5
+        resize2fs /dev/$FILE_SYSTEM >/dev/null
+
+        dialog --aspect 100 --msgbox "The volume mounted at $MOUNT_POINT has now a size of $2GB" 0 0
+    else
+        dialog --aspect 100 --msgbox "An error occured: $ERROR_CHECK" 0 0
+    fi
+
+}
+
 function openMenu {
     ANSWER=$(dialog --title "Choose action" --default-item "1" \
             --menu "Select:" 0 0 0 \
         1 "Create and mount volume" \
         2 "Mount volume" \
         3 "Unmount volume" \
-        4 "Delete and unmount volume" 3>&1 1>&2 2>&3)
+        4 "Delete and unmount volume" \
+        5 "Resize volume" 3>&1 1>&2 2>&3)
     # clear
     case $ANSWER in
         1)
@@ -210,18 +241,18 @@ function openMenu {
         [3-4])
             # BEGINNING OF SECTION UNMOUNT VOLUME
 
-                VALUES=""
-                for i in $ALL_VOLUME_NAMES; do
-                    server_id=$(jq -r '.volumes[]|select(.name=="'$i'")|.server' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null)
-                    server_ip=$(jq -r '.servers[]|select(.id=='$server_id')|.public_net.ipv4.ip' <<< "$ALL_SERVERS_HTTP" 2>/dev/null)
+            VALUES=""
+            for i in $ALL_VOLUME_NAMES; do
+                server_id=$(jq -r '.volumes[]|select(.name=="'$i'")|.server' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null)
+                server_ip=$(jq -r '.servers[]|select(.id=='$server_id')|.public_net.ipv4.ip' <<< "$ALL_SERVERS_HTTP" 2>/dev/null)
 
-                    echo "$IP"
-                    echo "$server_ip"
+                echo "$IP"
+                echo "$server_ip"
 
-                    if [ "$server_id" != "null" ] && [ "$server_ip" == "$IP" ]; then
-                        VALUES="$VALUES $(jq -r '.volumes[]|select(.name=="'$i'")|.id' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null) $i"
-                    fi
-                done
+                if [ "$server_id" != "null" ] && [ "$server_ip" == "$IP" ]; then
+                    VALUES="$VALUES $(jq -r '.volumes[]|select(.name=="'$i'")|.id' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null) $i"
+                fi
+            done
 
             EXECUTE=true
             if [ -z $VALUES ]; then
@@ -238,6 +269,35 @@ function openMenu {
                     unmountVolume "$SELECTED_VOLUME_ID"  "$(jq -r '.volumes[]|select(.id=='$SELECTED_VOLUME_ID')|.name' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null)" true
                 else
                     unmountVolume "$SELECTED_VOLUME_ID"  "$(jq -r '.volumes[]|select(.id=='$SELECTED_VOLUME_ID')|.name' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null)" false
+                fi
+            fi
+            ;;
+         5)
+            VALUES=""
+            for i in $ALL_VOLUME_NAMES; do
+                if [ "$(jq -r '.volumes[]|select(.name=="'$i'")|.server' <<< "$ALL_VOLUMES_HTTP")" == "$SERVER_ID" ]; then
+                    VALUES="$VALUES $(jq -r '.volumes[]|select(.name=="'$i'")|.id' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null) $i"
+                fi
+            done
+
+            EXECUTE=true
+            if [ -z $VALUES ]; then
+                dialog --aspect 100 --infobox "There are no mounted volumes." 0 0
+                EXECUTE=false
+                sleep 1
+            else
+                SELECTED_VOLUME_ID=$(dialog --title "Resize volume" --menu "Select: " 0 0 0 $VALUES 3>&1 1>&2 2>&3)
+                clear
+            fi
+
+            if [ $EXECUTE = true ]; then
+                SIZE=0
+                until [[ $SIZE =~ ^[0-9]+$ && $SIZE -gt $(jq -r '.volumes[]|select(.id=='$SELECTED_VOLUME_ID')|.size' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null) ]] || [ -z $SIZE ]; do
+                    SIZE=$(dialog --title "Resize volume" --inputbox "Enter the new (larger) volume size in GB:" 8 40 3>&1 1>&2 2>&3 3>&-)
+                done
+
+                if ! [[ -z $SIZE ]]; then
+                    resizeVolume $SELECTED_VOLUME_ID $SIZE "/mnt/$(jq -r '.volumes[]|select(.id=='$SELECTED_VOLUME_ID')|.name' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null)"
                 fi
             fi
             ;;

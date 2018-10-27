@@ -31,9 +31,6 @@ function startup {
 }
 
 function createVolume {
-
-    dialog --aspect 100 --msgbox '{"size": '$1$', "name": "'"$2"$'", "server": '$SERVER_ID'}' 0 0
-
     HTTP_RESPONSE=$(curl --silent --write-out "HTTPSTATUS:%{http_code}" -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $API_KEY" -d '{"size": '$1$', "name": "'"$2"$'", "server": '$SERVER_ID'}' https://api.hetzner.cloud/v1/volumes)
 
     dialog --aspect 100 --infobox "Creating volume..." 0 0
@@ -86,8 +83,6 @@ function deleteVolume {
     else
         dialog --aspect 100 --msgbox "Couldn't delete the volume, because it's locked" 0 0
     fi
-
-
 }
 
 
@@ -233,7 +228,8 @@ function openMenu {
         3 "Unmount volume" \
         4 "Delete and unmount volume" \
         5 "Resize volume" \
-        6 "Change protection" 3>&1 1>&2 2>&3)
+        6 "Change protection" \
+        7 "Delete volume" 3>&1 1>&2 2>&3)
     # clear
     case $ANSWER in
         1)
@@ -296,16 +292,17 @@ function openMenu {
                 clear
             fi
 
-            if [ "$(jq -r '.volumes[]|select(.id=='$SELECTED_VOLUME_ID')|.protection.delete' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null)" = false ]; then
-                if [ $EXECUTE = true ]; then
-                    if [ $ANSWER == 4 ]; then
+
+            if [ $EXECUTE = true ]; then
+                if [ $ANSWER == 4 ]; then
+                    if [ "$(jq -r '.volumes[]|select(.id=='$SELECTED_VOLUME_ID')|.protection.delete' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null)" = false ]; then
                         unmountVolume "$SELECTED_VOLUME_ID"  "$(jq -r '.volumes[]|select(.id=='$SELECTED_VOLUME_ID')|.name' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null)" true
                     else
-                        unmountVolume "$SELECTED_VOLUME_ID"  "$(jq -r '.volumes[]|select(.id=='$SELECTED_VOLUME_ID')|.name' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null)" false
+                        dialog --aspect 100 --msgbox "Couldn't delete and unmount the volume, because it's locked. \nPlease use \"Unmount volume\"" 0 0
                     fi
+                else
+                    unmountVolume "$SELECTED_VOLUME_ID"  "$(jq -r '.volumes[]|select(.id=='$SELECTED_VOLUME_ID')|.name' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null)" false
                 fi
-            else
-                dialog --aspect 100 --msgbox "Couldn't delete and unmount the volume, because it's locked. \nPlease use \"Unmount volume\"" 0 0
             fi
             ;;
         5)
@@ -342,18 +339,16 @@ function openMenu {
             NAME=
             for i in $ALL_VOLUME_NAMES; do
                 VOLUME=$(jq -r '.volumes[]|select(.name=="'$i'")' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null)
-                if [ "$(jq -r '.server' <<< "$VOLUME")" = "$SERVER_ID" ]; then
-                    if [ $(jq -r '.protection.delete' <<< "$VOLUME") = true ]; then
-                        NAME="$i(protected)"
-                    else
-                        NAME="$i"
-                    fi
-                    VALUES="$VALUES $(jq -r '.id' <<< "$VOLUME" 2>/dev/null) $NAME"
+                if [ $(jq -r '.protection.delete' <<< "$VOLUME") = true ]; then
+                    NAME="$i(protected)"
+                else
+                    NAME="$i"
                 fi
+                VALUES="$VALUES $(jq -r '.id' <<< "$VOLUME" 2>/dev/null) $NAME"
             done
 
             if [ -z $VALUES ]; then
-                dialog --aspect 100 --infobox "There is no volume attached to this server." 0 0
+                dialog --aspect 100 --infobox "There are no existing volumes." 0 0
                 sleep 1
             else
                 SELECTED_VOLUME_ID=$(dialog --title "Change protection:" --menu "Select: " 0 0 0 $VALUES 3>&1 1>&2 2>&3)
@@ -369,6 +364,28 @@ function openMenu {
                 VOLUME=$(jq -r '.volumes[]|select(.id=='$SELECTED_VOLUME_ID')' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null)
 
                 changeProtection "$SELECTED_VOLUME_ID" "$(jq -r '.protection.delete' <<< $VOLUME)" "$(jq -r '.name' <<< $VOLUME)"
+            fi
+            ;;
+        7)
+            VALUES=""
+            for i in $ALL_VOLUME_NAMES; do
+                if [ "$(jq -r '.volumes[]|select(.name=="'$i'")|.server' <<< "$ALL_VOLUMES_HTTP")" == "null" ]; then
+                    VALUES="$VALUES $(jq -r '.volumes[]|select(.name=="'$i'")|.id' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null) $i"
+                fi
+            done
+
+            EXECUTE=true
+             if [ -z $VALUES ]; then
+                dialog --aspect 100 --infobox "There is no volume that isn't mounted." 0 0
+                sleep 0.2
+                EXECUTE=false
+            else
+                SELECTED_VOLUME_ID=$(dialog --title "Volume delete" --menu "Select: " 0 0 0 $VALUES 3>&1 1>&2 2>&3)
+                clear
+            fi
+
+            if [ $EXECUTE = true ]; then
+                deleteVolume $SELECTED_VOLUME_ID
             fi
             ;;
     esac

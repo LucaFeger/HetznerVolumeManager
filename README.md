@@ -17,7 +17,7 @@ Roadmap
 - [ ] **adding volumes**
 - [x] unmounting volumes
 - [x] removing and unmounting volumes
-- [ ] **removing volumes**
+- [x] removing volumes
 - [x] resizing volumes
 - [x] changing protection
 - [x] resizing volumes

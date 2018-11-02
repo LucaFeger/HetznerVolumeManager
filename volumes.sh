@@ -76,6 +76,28 @@ function createVolume {
     fi
 }
 
+function addVolume {
+    HTTP_RESPONSE=$(curl --silent --write-out "HTTPSTATUS:%{http_code}" -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $API_KEY" -d '{"size": '$1$', "name": "'"$2"$'", "server": '$SERVER_ID'}' https://api.hetzner.cloud/v1/volumes)
+
+    dialog --aspect 100 --infobox "Creating volume..." 0 0
+    sleep 0.5
+    HTTP_BODY=$(echo "$HTTP_RESPONSE" | sed -e 's/HTTPSTATUS\:.*//g')
+    ERROR_CHECK=$(jq '.error.message' <<< "$HTTP_BODY" 2>/dev/null)
+
+    VOLUME_ID=$(jq '.volume.id' <<< "$HTTP_BODY" 2>/dev/null)
+
+    SUCCESS=false
+    until [[ $SUCCESS = true ]]; do
+        temp_result="$(curl --silent -H "Authorization: Bearer $API_KEY" https://api.hetzner.cloud/v1/volumes/$VOLUME_ID)"
+        status=$(jq -r ".volume.status" <<< $temp_result 2>/dev/null)
+        if [ "$status" = "available" ]; then
+            SUCCESS=true
+        fi
+    done
+
+    dialog --aspect 100 --msgbox "Created Volume $2 successfully" 0 0
+}
+
 function deleteVolume {
     if [ "$(jq -r '.volumes[]|select(.id=='$1')|.protection.delete' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null)" = false ]; then
         curl --silent -X DELETE -H "Authorization: Bearer $API_KEY" https://api.hetzner.cloud/v1/volumes/$1
@@ -229,7 +251,8 @@ function openMenu {
         4 "Delete and unmount volume" \
         5 "Resize volume" \
         6 "Change protection" \
-        7 "Delete volume" 3>&1 1>&2 2>&3)
+        7 "Delete volume" \
+        8 "Add volume" 3>&1 1>&2 2>&3)
     # clear
     case $ANSWER in
         1)
@@ -386,6 +409,20 @@ function openMenu {
 
             if [ $EXECUTE = true ]; then
                 deleteVolume $SELECTED_VOLUME_ID
+            fi
+            ;;
+        8)
+            SIZE=0
+            until [[ $SIZE =~ ^[0-9]+$ && $SIZE -gt 9 ]] || [ -z $SIZE ]; do
+                SIZE=$(dialog --title "Volume Setup" --inputbox "Enter the volume size in GB (min 10):" 8 40 3>&1 1>&2 2>&3 3>&-)
+            done
+
+            dialog --clear
+            if ! [[ -z $SIZE ]]; then
+                NAME=$(dialog --title "Volume Setup" --inputbox "Enter the volume name:" 8 40 3>&1 1>&2 2>&3 3>&-)
+                if ! [[ -z $NAME ]]; then
+                    addVolume "$SIZE" "$NAME"
+                fi
             fi
             ;;
     esac

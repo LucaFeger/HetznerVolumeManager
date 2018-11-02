@@ -14,7 +14,7 @@ Roadmap
 ### Features
 - [x] Adding and mounting volumes
 - [x] mounting volumes
-- [ ] **adding volumes**
+- [x] adding volumes
 - [x] unmounting volumes
 - [x] removing and unmounting volumes
 - [x] removing volumes

@@ -1,14 +1,14 @@
 #!/bin/bash
 DIALOG=${DIALOG=dialog}
 
-if [ -z $1 ]; then
+if [ -z "$1" ]; then
     echo "Please provide your API-KEY"
     exit 1
 fi
 
 API_KEY="$1"
 
-if [[ -z "$(command -v sudo)" && $EUID -ne 0 ]]; then
+if [[ -z "$(command -v sudo)" ]]; then
         echo "sudo is not installed. Please install sudo as root"
 fi
 
@@ -29,13 +29,13 @@ function startup {
 
     SERVER_ID=$(jq '.servers[]|select(.public_net.ipv4.ip=="'"$IP"$'")|.id' <<< "$ALL_SERVERS_HTTP" 2>/dev/null)
 
-    ALL_VOLUME_NAMES=$(echo $ALL_VOLUMES_HTTP | jq -r '.volumes[].name' 2>/dev/null)
+    ALL_VOLUME_NAMES=$(echo "$ALL_VOLUMES_HTTP" | jq -r '.volumes[].name' 2>/dev/null)
 
     CLOSE=false
 }
 
 function createVolume {
-    HTTP_RESPONSE=$(curl --silent --write-out "HTTPSTATUS:%{http_code}" -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $API_KEY" -d '{"size": '$1$', "name": "'"$2"$'", "server": '$SERVER_ID'}' https://api.hetzner.cloud/v1/volumes)
+    HTTP_RESPONSE=$(curl --silent --write-out "HTTPSTATUS:%{http_code}" -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $API_KEY" -d '{"size": '"$1"$', "name": "'"$2"$'", "server": '$SERVER_ID'}' https://api.hetzner.cloud/v1/volumes)
 
     dialog --aspect 100 --infobox "Creating volume..." 0 0
     sleep 0.5

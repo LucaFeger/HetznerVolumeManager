@@ -9,12 +9,12 @@ fi
 API_KEY="$1"
 
 if [[ -z "$(command -v sudo)" ]]; then
-        echo "sudo is not installed. Please install sudo as root"
+	echo "sudo is not installed. Please install sudo as root"
 fi
 
 command -v dialog >/dev/null 2>&1 || { echo "installing dialog..."; sudo apt install -y dialog; }
 command -v curl >/dev/null 2>&1 || { echo "installing curl..."; sudo apt install -y curl; }
-command -v jq >/dev/null 2>&1 ||{ echo "installing jq..."; sudo apt install -y jq; }
+command -v jq >/dev/null 2>&1 || { echo "installing jq..."; sudo apt install -y jq; }
 
 IP="$(curl --silent ipecho.net/plain)"
 ALL_VOLUMES_HTTP=
@@ -35,67 +35,67 @@ function startup {
 }
 
 function createVolume {
-    HTTP_RESPONSE=$(curl --silent --write-out "HTTPSTATUS:%{http_code}" -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $API_KEY" -d '{"size": '"$1"$', "name": "'"$2"$'", "server": '$SERVER_ID'}' https://api.hetzner.cloud/v1/volumes)
+    http_response=$(curl --silent --write-out "HTTPSTATUS:%{http_code}" -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $API_KEY" -d '{"size": '"$1"$', "name": "'"$2"$'", "server": '"$SERVER_ID"'}' https://api.hetzner.cloud/v1/volumes)
 
     dialog --aspect 100 --infobox "Creating volume..." 0 0
     sleep 0.5
-    HTTP_BODY=$(echo "$HTTP_RESPONSE" | sed -e 's/HTTPSTATUS\:.*//g')
-    ERROR_CHECK=$(jq '.error.message' <<< "$HTTP_BODY" 2>/dev/null)
+    http_body=$(echo "$http_response" | sed -e 's/HTTPSTATUS\:.*//g')
+    error_check=$(jq '.error.message' <<< "$http_body" 2>/dev/null)
 
-    if [ "$ERROR_CHECK" = "null" ]; then
+    if [ "$error_check" = "null" ]; then
         dialog --aspect 100 --infobox "Configuring volume..." 0 0
         sleep 0.5
 
-        LINUX_TEMP=$(jq '.volume.linux_device' <<< "$HTTP_BODY" 2>/dev/null)
-        VOLUME_ID=$(jq '.volume.id' <<< "$HTTP_BODY" 2>/dev/null)
-        LINUX_DEVICE="${LINUX_TEMP//\"}"
-        MOUNT_PATH="/mnt/$2"
+        linux_temp=$(jq '.volume.linux_device' <<< "$http_body" 2>/dev/null)
+        volume_id=$(jq '.volume.id' <<< "$http_body" 2>/dev/null)
+        linux_device="${linux_temp//\"}"
+        mount_path="/mnt/$2"
 
         dialog --aspect 100 --infobox "Waiting for the container to create (this may take a few seconds)" 0 0
 
-        SUCCESS=false
-        until [[ $SUCCESS = true ]]; do
-            temp_result="$(curl --silent -H "Authorization: Bearer $API_KEY" https://api.hetzner.cloud/v1/volumes/$VOLUME_ID/actions)"
-            status=$(jq -r ".actions[]|select(.command==\"attach_volume\")|.status" <<< $temp_result 2>/dev/null)
+        success=false
+        until [[ $success = true ]]; do
+            temp_result="$(curl --silent -H "Authorization: Bearer $API_KEY" https://api.hetzner.cloud/v1/volumes/$volume_id/actions)"
+            status=$(jq -r ".actions[]|select(.command==\"attach_volume\")|.status" <<< "$temp_result" 2>/dev/null)
             if [ "$status" = "success" ]; then
-                SUCCESS=true
+                success=true
             fi
         done
 
         dialog --aspect 100 --infobox "Removing existing mounts" 0 0
         sleep 0.5
-        sudo umount -R "$MOUNT_PATH" &> /dev/null
+        sudo umount -R "$mount_path" &> /dev/null
         dialog --aspect 100 --infobox "Removing old directory" 0 0
         sleep 0.5
-        sudo rm -rf "$MOUNT_PATH" &> /dev/null
+        sudo rm -rf "$mount_path" &> /dev/null
 
         dialog --aspect 100 --infobox "mounting to directory" 0 0
         sleep 0.5
-        sudo mkfs.ext4 -F "$LINUX_DEVICE" &>/dev/null
-        sudo mkdir -p "$MOUNT_PATH" &>/dev/null
-        mount -o discard,defaults "$LINUX_DEVICE" "$MOUNT_PATH" &> /dev/null
-        dialog --aspect 100 --msgbox "The volume is now mounted to $MOUNT_PATH !" 0 0
+        sudo mkfs.ext4 -F "$linux_device" &>/dev/null
+        sudo mkdir -p "$mount_path" &>/dev/null
+        mount -o discard,defaults "$linux_device" "$mount_path" &> /dev/null
+        dialog --aspect 100 --msgbox "The volume is now mounted to $mount_path !" 0 0
     else
-        dialog --aspect 100 --aspect 100 --msgbox "An error occured: $ERROR_CHECK" 0 0
+        dialog --aspect 100 --aspect 100 --msgbox "An error occured: $error_check" 0 0
     fi
 }
 
 function addVolume {
-    HTTP_RESPONSE=$(curl --silent --write-out "HTTPSTATUS:%{http_code}" -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $API_KEY" -d '{"size": '$1$', "name": "'"$2"$'", "server": '$SERVER_ID'}' https://api.hetzner.cloud/v1/volumes)
+    http_response=$(curl --silent --write-out "HTTPSTATUS:%{http_code}" -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $API_KEY" -d '{"size": '$1$', "name": "'"$2"$'", "server": '$SERVER_ID'}' https://api.hetzner.cloud/v1/volumes)
 
     dialog --aspect 100 --infobox "Creating volume..." 0 0
     sleep 0.5
-    HTTP_BODY=$(echo "$HTTP_RESPONSE" | sed -e 's/HTTPSTATUS\:.*//g')
-    ERROR_CHECK=$(jq '.error.message' <<< "$HTTP_BODY" 2>/dev/null)
+    http_body=$(echo "$http_response" | sed -e 's/HTTPSTATUS\:.*//g')
+    error_check=$(jq '.error.message' <<< "$http_body" 2>/dev/null)
 
-    VOLUME_ID=$(jq '.volume.id' <<< "$HTTP_BODY" 2>/dev/null)
+    volume_id=$(jq '.volume.id' <<< "$http_body" 2>/dev/null)
 
-    SUCCESS=false
-    until [[ $SUCCESS = true ]]; do
-        temp_result="$(curl --silent -H "Authorization: Bearer $API_KEY" https://api.hetzner.cloud/v1/volumes/$VOLUME_ID)"
+    success=false
+    until [[ $success = true ]]; do
+        temp_result="$(curl --silent -H "Authorization: Bearer $API_KEY" https://api.hetzner.cloud/v1/volumes/$volume_id)"
         status=$(jq -r ".volume.status" <<< $temp_result 2>/dev/null)
         if [ "$status" = "available" ]; then
-            SUCCESS=true
+            success=true
         fi
     done
 
@@ -113,133 +113,133 @@ function deleteVolume {
 
 
 function unmountVolume {
-    RESULT=$(curl --silent --write-out "HTTPSTATUS:%{http_code}" -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $API_KEY" -d '{"server": '$SERVER_ID$'}' https://api.hetzner.cloud/v1/volumes/$1/actions/detach)
-    HTTP_BODY=$(echo "$RESULT" | sed -e 's/HTTPSTATUS\:.*//g')
-    ERROR_CHECK=$(jq '.error.message' <<< "$HTTP_BODY" 2>/dev/null)
+    result=$(curl --silent --write-out "HTTPSTATUS:%{http_code}" -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $API_KEY" -d '{"server": '$SERVER_ID$'}' https://api.hetzner.cloud/v1/volumes/$1/actions/detach)
+    http_body=$(echo "$result" | sed -e 's/HTTPSTATUS\:.*//g')
+    error_check=$(jq '.error.message' <<< "$http_body" 2>/dev/null)
 
-    if [ "$ERROR_CHECK" = "null" ]; then
+    if [ "$error_check" = "null" ]; then
         dialog --aspect 100 --infobox "Unmounting volume" 0 0
         sleep 0.5
 
-        MOUNT_PATH="/mnt/$2"
+        mount_path="/mnt/$2"
 
         dialog --aspect 100 --infobox "Removing existing mounts" 0 0
         sleep 0.5
-        sudo umount -R "$MOUNT_PATH" &> /dev/null
+        sudo umount -R "$mount_path" &> /dev/null
         dialog --aspect 100 --infobox "Removing old directory" 0 0
         sleep 0.5
-        sudo rm -rf "$MOUNT_PATH" &> /dev/null
-        dialog --aspect 100 --msgbox "The mount at $MOUNT_PATH was deleted!" 0 0
+        sudo rm -rf "$mount_path" &> /dev/null
+        dialog --aspect 100 --msgbox "The mount at $mount_path was deleted!" 0 0
 
-        if [ $3 == true ]; then
-            SUCCESS=false
-            until [[ $SUCCESS = true ]]; do
+        if [ -d $3 ]; then
+            success=false
+            until [[ $success = true ]]; do
                 temp_result="$(curl --silent -H "Authorization: Bearer $API_KEY" https://api.hetzner.cloud/v1/volumes/$1/actions)"
                 status=$(jq -r "[.actions[]|select(.command==\"detach_volume\")|.status][-1]" <<< $temp_result 2>/dev/null)
                 if [ "$status" = "success" ]; then
-                    SUCCESS=true
+                    success=true
                 fi
             done
 
-            deleteVolume $1
+            deleteVolume "$1"
         fi
     else
-        dialog --aspect 100 --msgbox "An error occured: $ERROR_CHECK" 0 0
+        dialog --aspect 100 --msgbox "An error occured: $error_check" 0 0
     fi
 }
 
 function mountVolume {
-    RESULT=$(curl --silent --write-out "HTTPSTATUS:%{http_code}" -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $API_KEY" -d '{"server": '$SERVER_ID$'}' https://api.hetzner.cloud/v1/volumes/$1/actions/attach)
-    HTTP_BODY=$(echo "$RESULT" | sed -e 's/HTTPSTATUS\:.*//g')
-    ERROR_CHECK=$(jq '.error.message' <<< "$HTTP_BODY" 2>/dev/null)
+    result=$(curl --silent --write-out "HTTPSTATUS:%{http_code}" -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $API_KEY" -d '{"server": '$SERVER_ID$'}' https://api.hetzner.cloud/v1/volumes/$1/actions/attach)
+    http_body=$(echo "$result" | sed -e 's/HTTPSTATUS\:.*//g')
+    error_check=$(jq '.error.message' <<< "$http_body" 2>/dev/null)
 
-    if [ "$ERROR_CHECK" = "null" ]; then
+    if [ "$error_check" = "null" ]; then
         dialog --aspect 100 --infobox "Mounting volume..." 0 0
         sleep 0.5
-        LINUX_TEMP="$2"
-        MOUNT_TEMP="$3"
+        linux_temp="$2"
+        mount_temp="$3"
 
-        LINUX_DEVICE="${LINUX_TEMP//\"}"
-        MOUNT_PATH="/mnt/$MOUNT_TEMP"
+        linux_device="${linux_temp//\"}"
+        mount_path="/mnt/$mount_temp"
 
-        SUCCESS=false
-        until [[ $SUCCESS = true ]]; do
+        success=false
+        until [[ $success = true ]]; do
             temp_result="$(curl --silent -H "Authorization: Bearer $API_KEY" https://api.hetzner.cloud/v1/volumes/$1/actions)"
             status=$(jq -r "[.actions[]|select(.command==\"attach_volume\")|.status][-1]" <<< $temp_result 2>/dev/null)
             if [ "$status" = "success" ]; then
-                SUCCESS=true
+                success=true
             fi
         done
 
         dialog --aspect 100 --infobox "Remove existing mounts" 0 0
         sleep 0.5
-        sudo umount -R "$MOUNT_PATH" # &> /dev/null
+        sudo umount -R "$mount_path" # &> /dev/null
         dialog --aspect 100 --infobox "Removing old directory" 0 0
         sleep 0.5
-        sudo rm -rf "$MOUNT_PATH" # &> /dev/null
+        sudo rm -rf "$mount_path" # &> /dev/null
 
         dialog --aspect 100 --infobox "Mounting to directory" 0 0
         sleep 0.5
-        sudo mkdir "$MOUNT_PATH" # &>/dev/null
-        mount -o discard,defaults "$LINUX_DEVICE" "$MOUNT_PATH" # &> /dev/null
-        dialog --aspect 100 --msgbox "The volume is now mounted to $MOUNT_PATH !" 0 0
+        sudo mkdir "$mount_path" # &>/dev/null
+        mount -o discard,defaults "$linux_device" "$mount_path" # &> /dev/null
+        dialog --aspect 100 --msgbox "The volume is now mounted to $mount_path !" 0 0
     else
-        dialog --aspect 100 --msgbox "An error occured: $ERROR_CHECK" 0 0
+        dialog --aspect 100 --msgbox "An error occured: $error_check" 0 0
     fi
 }
 
 function resizeVolume {
-    RESULT=$(curl --silent --write-out "HTTPSTATUS:%{http_code}" -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $API_KEY" -d '{"size": '$2$'}' https://api.hetzner.cloud/v1/volumes/$1/actions/resize)
-    HTTP_BODY=$(echo "$RESULT" | sed -e 's/HTTPSTATUS\:.*//g')
-    ERROR_CHECK=$(jq '.error.message' <<< "$HTTP_BODY" 2>/dev/null)
+    result=$(curl --silent --write-out "HTTPSTATUS:%{http_code}" -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $API_KEY" -d '{"size": '$2$'}' https://api.hetzner.cloud/v1/volumes/$1/actions/resize)
+    http_body=$(echo "$result" | sed -e 's/HTTPSTATUS\:.*//g')
+    error_check=$(jq '.error.message' <<< "$http_body" 2>/dev/null)
 
-    if [ "$ERROR_CHECK" = "null" ]; then
+    if [ "$error_check" = "null" ]; then
         dialog --aspect 100 --infobox "Resizing volume..." 0 0
 
-        SUCCESS=false
-        until [[ $SUCCESS = true ]]; do
+        success=false
+        until [[ $success = true ]]; do
             temp_result="$(curl --silent -H "Authorization: Bearer $API_KEY" https://api.hetzner.cloud/v1/volumes/$1/actions)"
             status=$(jq -r "[.actions[]|select(.command==\"resize_volume\")|.status][-1]" <<< $temp_result 2>/dev/null)
             if [ "$status" = "success" ]; then
-                SUCCESS=true
+                success=true
             fi
         done
 
-        MOUNT_POINT=$3
-        FILE_SYSTEM=$(lsblk | grep "$MOUNT_POINT" | awk '{print $1;}')
+        mount_point="$3"
+        file_system="$(lsblk | grep "$mount_point" | awk '{print $1;}')"
         dialog --aspect 100 --infobox "Resizing local partition..." 0 0
         sleep 0.5
-        resize2fs /dev/$FILE_SYSTEM >/dev/null
+        resize2fs /dev/$file_system >/dev/null
 
-        dialog --aspect 100 --msgbox "The volume mounted at $MOUNT_POINT has now a size of $2GB" 0 0
+        dialog --aspect 100 --msgbox "The volume mounted at $mount_point has now a size of $2GB" 0 0
     else
-        dialog --aspect 100 --msgbox "An error occured: $ERROR_CHECK" 0 0
+        dialog --aspect 100 --msgbox "An error occured: $error_check" 0 0
     fi
 
 }
 
 function changeProtection {
-    DELETE=
+    delete=
     if [ "$2" = true ]; then
-        DELETE=false
+        delete=false
     else
-        DELETE=true
+        delete=true
     fi
 
-    RESULT=$(curl --silent --write-out "HTTPSTATUS:%{http_code}" -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $API_KEY" -d '{"delete": '$DELETE$'}' https://api.hetzner.cloud/v1/volumes/$1/actions/change_protection)
-    HTTP_BODY=$(echo "$RESULT" | sed -e 's/HTTPSTATUS\:.*//g')
-    ERROR_CHECK=$(jq '.error.message' <<< "$HTTP_BODY" 2>/dev/null)
+    result=$(curl --silent --write-out "HTTPSTATUS:%{http_code}" -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $API_KEY" -d '{"delete": '$delete$'}' https://api.hetzner.cloud/v1/volumes/$1/actions/change_protection)
+    http_body=$(echo "$result" | sed -e 's/HTTPSTATUS\:.*//g')
+    error_check=$(jq '.error.message' <<< "$http_body" 2>/dev/null)
 
-    SUCCESS=false
-    until [[ $SUCCESS = true ]]; do
+    success=false
+    until [[ $success = true ]]; do
         temp_result="$(curl --silent -H "Authorization: Bearer $API_KEY" https://api.hetzner.cloud/v1/volumes/$1/actions)"
         status=$(jq -r "[.actions[]|select(.command==\"change_protection\")|.status][-1]" <<< $temp_result 2>/dev/null)
         if [ "$status" = "success" ]; then
-            SUCCESS=true
+            success=true
         fi
     done
 
-    if [ $DELETE = false ]; then
+    if [ $delete = false ]; then
         dialog --aspect 100 --msgbox "The volume $3 is no longer protected" 0 0
     else
         dialog --aspect 100 --msgbox "The volume $3 is now protected" 0 0
@@ -247,7 +247,7 @@ function changeProtection {
 }
 
 function openMenu {
-    ANSWER=$(dialog --title "Choose action" --default-item "1" \
+    answer=$(dialog --title "Choose action" --default-item "1" \
             --menu "Select:" 0 0 0 \
         1 "Create and mount volume" \
         2 "Mount volume" \
@@ -258,180 +258,179 @@ function openMenu {
         7 "Delete volume" \
         8 "Add volume" 3>&1 1>&2 2>&3)
     # clear
-    case $ANSWER in
+    case $answer in
         1)
             # BEGINNING OF SECTION "CREATE AND MOUNT VOLUME"
-            SIZE=0
+            size=0
 
-            until [[ $SIZE =~ ^[0-9]+$ && $SIZE -gt 9 ]] || [ -z $SIZE ]; do
-                SIZE=$(dialog --title "Volume Setup" --inputbox "Enter the volume size in GB (min 10):" 8 40 3>&1 1>&2 2>&3 3>&-)
+            until [[ $size =~ ^[0-9]+$ && $size -gt 9 ]] || [ -z $size ]; do
+                size=$(dialog --title "Volume Setup" --inputbox "Enter the volume size in GB (min 10):" 8 40 3>&1 1>&2 2>&3 3>&-)
             done
 
             dialog --clear
 
-            if ! [[ -z $SIZE ]]; then
+            if [[ -n $size ]]; then
                 NAME=$(dialog --title "Volume Setup" --inputbox "Enter the volume name:" 8 40 3>&1 1>&2 2>&3 3>&-)
-                if ! [[ -z $NAME ]]; then
-                    createVolume "$SIZE" "$NAME"
+                if [[ -n $NAME ]]; then
+                    createVolume "$size" "$NAME"
                 fi
             fi
             ;;
         2)
             # BEGINNING OF SECTION "MOUNT VOLUME"
 
-            VALUES=""
+            values=""
             for i in $ALL_VOLUME_NAMES; do
-                if [ "$(jq -r '.volumes[]|select(.name=="'$i'")|.server' <<< "$ALL_VOLUMES_HTTP")" == "null" ]; then
-                    VALUES="$VALUES $(jq -r '.volumes[]|select(.name=="'$i'")|.id' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null) $i"
+                if [ "$(jq -r '.volumes[]|select(.name=="'"$i"'")|.server' <<< "$ALL_VOLUMES_HTTP")" == "null" ]; then
+                    values="$values $(jq -r '.volumes[]|select(.name=="'"$i"'")|.id' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null) $i"
                 fi
             done
 
-            if [ -z $VALUES ]; then
+            if [ -z "$values" ]; then
                 dialog --aspect 100 --infobox "There is no volume that isn't mounted." 0 0
                 sleep 1
             else
-                SELECTED_VOLUME_ID=$(dialog --title "Volume mount" --menu "Select: " 0 0 0 $VALUES 3>&1 1>&2 2>&3)
+                selected_volume_id=$(dialog --title "Volume mount" --menu "Select: " 0 0 0 "$values" 3>&1 1>&2 2>&3)
                 clear
             fi
 
-            mountVolume "$SELECTED_VOLUME_ID" "$(jq -r '.volumes[]|select(.id=='$SELECTED_VOLUME_ID')|.linux_device' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null)"  "$(jq -r '.volumes[]|select(.id=='$SELECTED_VOLUME_ID')|.name' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null)"
+            mountVolume "$selected_volume_id" "$(jq -r '.volumes[]|select(.id=='"$selected_volume_id"')|.linux_device' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null)"  "$(jq -r '.volumes[]|select(.id=='"$selected_volume_id"')|.name' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null)"
             ;;
         [3-4])
             # BEGINNING OF SECTION UNMOUNT VOLUME
 
-            VALUES=""
+            values=""
             for i in $ALL_VOLUME_NAMES; do
-                server_id=$(jq -r '.volumes[]|select(.name=="'$i'")|.server' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null)
-                server_ip=$(jq -r '.servers[]|select(.id=='$server_id')|.public_net.ipv4.ip' <<< "$ALL_SERVERS_HTTP" 2>/dev/null)
+                server_id=$(jq -r '.volumes[]|select(.name=="'"$i"'")|.server' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null)
+                server_ip=$(jq -r '.servers[]|select(.id=='"$server_id"')|.public_net.ipv4.ip' <<< "$ALL_SERVERS_HTTP" 2>/dev/null)
 
                 if [ "$server_id" != "null" ] && [ "$server_ip" == "$IP" ]; then
-                    VALUES="$VALUES $(jq -r '.volumes[]|select(.name=="'$i'")|.id' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null) $i"
+                    values="$values $(jq -r '.volumes[]|select(.name=="'"$i"'")|.id' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null) $i"
                 fi
             done
 
-            EXECUTE=true
-            if [ -z "$VALUES" ]; then
+            execute=true
+            if [ -z "$values" ]; then
                 dialog --aspect 100 --infobox "There are no mounted volumes." 0 0
-                EXECUTE=false
+                execute=false
                 sleep 1
             else
-                SELECTED_VOLUME_ID=$(dialog --title "Unmount volume" --menu "Select: " 0 0 0 $VALUES 3>&1 1>&2 2>&3)
+                selected_volume_id=$(dialog --title "Unmount volume" --menu "Select: " 0 0 0 "$values" 3>&1 1>&2 2>&3)
                 clear
             fi
 
 
-            if [ $EXECUTE = true ]; then
-                if [ $ANSWER == 4 ]; then
-                    if [ "$(jq -r '.volumes[]|select(.id=='$SELECTED_VOLUME_ID')|.protection.delete' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null)" = false ]; then
-                        unmountVolume "$SELECTED_VOLUME_ID"  "$(jq -r '.volumes[]|select(.id=='$SELECTED_VOLUME_ID')|.name' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null)" true
+            if [ $execute = true ]; then
+                if [ "$answer" -eq 4 ]; then
+                    if [ "$(jq -r '.volumes[]|select(.id=='"$selected_volume_id"')|.protection.delete' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null)" = false ]; then
+                        unmountVolume "$selected_volume_id"  "$(jq -r '.volumes[]|select(.id=='"$selected_volume_id"')|.name' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null)" true
                     else
                         dialog --aspect 100 --msgbox "Couldn't delete and unmount the volume, because it's locked. \nPlease use \"Unmount volume\"" 0 0
                     fi
                 else
-                    unmountVolume "$SELECTED_VOLUME_ID"  "$(jq -r '.volumes[]|select(.id=='$SELECTED_VOLUME_ID')|.name' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null)" false
+                    unmountVolume "$selected_volume_id"  "$(jq -r '.volumes[]|select(.id=='"$selected_volume_id"')|.name' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null)" false
                 fi
             fi
             ;;
         5)
-            VALUES=""
+            values=""
             for i in $ALL_VOLUME_NAMES; do
-                if [ "$(jq -r '.volumes[]|select(.name=="'$i'")|.server' <<< "$ALL_VOLUMES_HTTP")" == "$SERVER_ID" ]; then
-                    VALUES="$VALUES $(jq -r '.volumes[]|select(.name=="'$i'")|.id' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null) $i"
+                if [ "$(jq -r '.volumes[]|select(.name=="'"$i"'")|.server' <<< "$ALL_VOLUMES_HTTP")" == "$SERVER_ID" ]; then
+                    values="$values $(jq -r '.volumes[]|select(.name=="'"$i"'")|.id' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null) $i"
                 fi
             done
 
-            EXECUTE=true
-            if [ -z $VALUES ]; then
+            execute=true
+            if [ -z "$values" ]; then
                 dialog --aspect 100 --infobox "There are no mounted volumes." 0 0
-                EXECUTE=false
+                execute=false
                 sleep 1
             else
-                SELECTED_VOLUME_ID=$(dialog --title "Resize volume" --menu "Select: " 0 0 0 $VALUES 3>&1 1>&2 2>&3)
+                selected_volume_id=$(dialog --title "Resize volume" --menu "Select: " 0 0 0 "$values" 3>&1 1>&2 2>&3)
                 clear
             fi
 
-            if [ $EXECUTE = true ]; then
-                SIZE=0
-                until [[ $SIZE =~ ^[0-9]+$ && $SIZE -gt $(jq -r '.volumes[]|select(.id=='$SELECTED_VOLUME_ID')|.size' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null) ]] || [ -z $SIZE ]; do
-                    SIZE=$(dialog --title "Resize volume" --inputbox "Enter the new (larger) volume size in GB:" 8 40 3>&1 1>&2 2>&3 3>&-)
+            if [ $execute = true ]; then
+                size=0
+                until [[ $size =~ ^[0-9]+$ && $size -gt $(jq -r '.volumes[]|select(.id=='"$selected_volume_id"')|.size' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null) ]] || [ -z $size ]; do
+                    size=$(dialog --title "Resize volume" --inputbox "Enter the new (larger) volume size in GB:" 8 40 3>&1 1>&2 2>&3 3>&-)
                 done
 
-                if ! [[ -z $SIZE ]]; then
-                    resizeVolume $SELECTED_VOLUME_ID $SIZE "/mnt/$(jq -r '.volumes[]|select(.id=='$SELECTED_VOLUME_ID')|.name' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null)"
+                if [[ -n $size ]]; then
+                    resizeVolume "$selected_volume_id" "$size" "/mnt/$(jq -r '.volumes[]|select(.id=='"$selected_volume_id"')|.name' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null)"
                 fi
             fi
             ;;
         6)
-            VALUES=""
+            values=""
             NAME=
             for i in $ALL_VOLUME_NAMES; do
-                VOLUME=$(jq -r '.volumes[]|select(.name=="'$i'")' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null)
-                if [ $(jq -r '.protection.delete' <<< "$VOLUME") = true ]; then
+                VOLUME=$(jq -r '.volumes[]|select(.name=="'"$i"'")' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null)
+                if [ "$(jq -r '.protection.delete' <<< \""$VOLUME"\")" = true ]; then
                     NAME="$i(protected)"
                 else
                     NAME="$i"
                 fi
-                VALUES="$VALUES $(jq -r '.id' <<< "$VOLUME" 2>/dev/null) $NAME"
+                values="$values $(jq -r '.id' <<< "$VOLUME" 2>/dev/null) $NAME"
             done
-
-            if [ -z $VALUES ]; then
+	    if [ -z "$values" ]; then
                 dialog --aspect 100 --infobox "There are no existing volumes." 0 0
                 sleep 1
             else
-                SELECTED_VOLUME_ID=$(dialog --title "Change protection:" --menu "Select: " 0 0 0 $VALUES 3>&1 1>&2 2>&3)
+                selected_volume_id=$(dialog --title "Change protection:" --menu "Select: " 0 0 0 "$values" 3>&1 1>&2 2>&3)
                 clear
             fi
 
-            EXECUTE=true
-            if [ -z $SELECTED_VOLUME_ID ]; then
-                EXECUTE=false
+            execute=true
+            if [ -z "$selected_volume_id" ]; then
+                execute=false
             fi
 
-            if [ $EXECUTE = true ]; then
-                VOLUME=$(jq -r '.volumes[]|select(.id=='$SELECTED_VOLUME_ID')' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null)
+            if [ $execute = true ]; then
+                VOLUME=$(jq -r '.volumes[]|select(.id=='"$selected_volume_id"')' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null)
 
-                changeProtection "$SELECTED_VOLUME_ID" "$(jq -r '.protection.delete' <<< $VOLUME)" "$(jq -r '.name' <<< $VOLUME)"
+		changeProtection "$selected_volume_id" "$(jq -r '.protection.delete' <<< "$VOLUME")" "$(jq -r '.name' <<< "$VOLUME")"
             fi
             ;;
         7)
-            VALUES=""
+            values=""
             for i in $ALL_VOLUME_NAMES; do
-                if [ "$(jq -r '.volumes[]|select(.name=="'$i'")|.server' <<< "$ALL_VOLUMES_HTTP")" == "null" ]; then
-                    VALUES="$VALUES $(jq -r '.volumes[]|select(.name=="'$i'")|.id' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null) $i"
+                if [ "$(jq -r '.volumes[]|select(.name=="'"$i"'")|.server' <<< "$ALL_VOLUMES_HTTP")" == "null" ]; then
+                    values="$values $(jq -r '.volumes[]|select(.name=="'"$i"'")|.id' <<< "$ALL_VOLUMES_HTTP" 2>/dev/null) $i"
                 fi
             done
 
-            EXECUTE=true
-             if [ -z $VALUES ]; then
+            execute=true
+             if [ -z "$values" ]; then
                 dialog --aspect 100 --infobox "There is no volume that isn't mounted." 0 0
                 sleep 0.2
-                EXECUTE=false
+                execute=false
             else
-                SELECTED_VOLUME_ID=$(dialog --title "Volume delete" --menu "Select: " 0 0 0 $VALUES 3>&1 1>&2 2>&3)
+                selected_volume_id=$(dialog --title "Volume delete" --menu "Select: " 0 0 0 "$values" 3>&1 1>&2 2>&3)
                 clear
             fi
 
-            if [ $EXECUTE = true ]; then
-                deleteVolume $SELECTED_VOLUME_ID
+            if [ $execute = true ]; then
+                deleteVolume "$selected_volume_id"
             fi
             ;;
         8)
-            SIZE=0
-            until [[ $SIZE =~ ^[0-9]+$ && $SIZE -gt 9 ]] || [ -z $SIZE ]; do
-                SIZE=$(dialog --title "Volume Setup" --inputbox "Enter the volume size in GB (min 10):" 8 40 3>&1 1>&2 2>&3 3>&-)
+            size=0
+            until [[ $size =~ ^[0-9]+$ && $size -gt 9 ]] || [ -z $size ]; do
+                size=$(dialog --title "Volume Setup" --inputbox "Enter the volume size in GB (min 10):" 8 40 3>&1 1>&2 2>&3 3>&-)
             done
 
             dialog --clear
-            if ! [[ -z $SIZE ]]; then
+            if [[ -n $size ]]; then
                 NAME=$(dialog --title "Volume Setup" --inputbox "Enter the volume name:" 8 40 3>&1 1>&2 2>&3 3>&-)
-                if ! [[ -z $NAME ]]; then
-                    addVolume "$SIZE" "$NAME"
+                if [[ -n $NAME ]]; then
+                    addVolume "$size" "$NAME"
                 fi
             fi
             ;;
     esac
 
-    if [[ -z $ANSWER ]]; then
+    if [[ -z $answer ]]; then
         CLOSE=true
     fi
 }

@@ -10,6 +10,7 @@ API_KEY="$1"
 
 if [[ -z "$(command -v sudo)" ]]; then
 	echo "sudo is not installed. Please install sudo as root"
+	exit 1
 fi
 
 command -v dialog >/dev/null 2>&1 || { echo "installing dialog..."; sudo apt install -y dialog; }

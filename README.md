@@ -6,7 +6,7 @@ Pull Requests and Issues are very welcome.
 
 How to use
 ==========
-The programm is controlable through a cli based GUI, which can be opened with ``./volumes.sh <YOUR-API-KEY>``
+The programm is controlable through a cli based GUI, which can be opened with ``./volumes.sh <YOUR-HETZNER-API-KEY>``
 
 
 Roadmap

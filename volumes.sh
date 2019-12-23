@@ -27,6 +27,8 @@ function startup {
 
     ALL_VOLUME_NAMES=$(echo $ALL_VOLUMES_HTTP | jq -r '.volumes[].name' 2>/dev/null)
 
+
+
     CLOSE=false
 }
 

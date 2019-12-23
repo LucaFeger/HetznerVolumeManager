@@ -8,6 +8,10 @@ fi
 
 API_KEY="$1"
 
+if [[ -z "$(command -v sudo)" && $EUID -ne 0 ]]; then
+        echo "sudo is not installed. Please install sudo as root"
+fi
+
 command -v dialog >/dev/null 2>&1 || { echo "installing dialog..."; sudo apt install -y dialog; }
 command -v curl >/dev/null 2>&1 || { echo "installing curl..."; sudo apt install -y curl; }
 command -v jq >/dev/null 2>&1 ||{ echo "installing jq..."; sudo apt install -y jq; }
